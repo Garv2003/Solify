@@ -11,6 +11,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Dimensions,
+  Alert,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {theme} from '../theme';
@@ -22,6 +23,7 @@ import {weatherImages} from '../constants';
 import {getData, storeData, removeData} from '../utils/asyncStorage';
 import * as Progress from 'react-native-progress';
 import {fetchWeatherForecast} from '../api/weather';
+import {useDeviceOrientation} from '@react-native-community/hooks';
 
 type TypeWeather = {
   id: number;
@@ -95,6 +97,8 @@ export default function HomeScreen() {
   const [weather, setWeather] = useState<TypeWeather>();
   const [DayList, setDayList] = useState<TypeDayList[]>([]);
   const [show, setShow] = useState(false);
+  // const orientation = useDeviceOrientation();
+  // console.log(orientation);
   // const handleSearch = search => {
   //   if (search && search.length > 2)
   //     fetchLocations({cityName: search}).then(data => {
@@ -107,12 +111,22 @@ export default function HomeScreen() {
     setLoading(true);
     fetchWeatherForecast({
       cityName: search,
-    } as unknown as {cityName: string}).then(data => {
-      setWeather(data?.city);
-      setDayList(data?.list);
-      setLoading(false);
-      storeData('city', data?.city?.name);
-    });
+    } as unknown as {cityName: string})
+      .then((data: any) => {
+        if (data?.data?.cod === '200') {
+          setWeather(data?.data?.city);
+          setDayList(data?.data?.list);
+          setLoading(false);
+          storeData('city', search);
+        } else {
+          setLoading(false);
+          Alert.alert('City not found');
+        }
+      })
+      .catch(err => {
+        setLoading(false);
+        Alert.alert('City not found');
+      });
   };
 
   useEffect(() => {
@@ -128,12 +142,11 @@ export default function HomeScreen() {
         setShow(false);
       },
     );
-
     return () => {
       keyboardDidHideListener.remove();
       keyboardDidShowListener.remove();
     };
-  }, []);
+  }, [show]);
 
   useEffect(() => {
     fetchMyWeatherData();
@@ -146,10 +159,9 @@ export default function HomeScreen() {
       cityName = myCity;
     }
     fetchWeatherForecast({cityName} as unknown as {cityName: string}).then(
-      data => {
-        setSearch('');
-        setWeather(data?.city);
-        setDayList(data?.list);
+      (data: any) => {
+        setWeather(data?.data?.city);
+        setDayList(data?.data?.list);
         setLoading(false);
       },
     );
@@ -180,14 +192,13 @@ export default function HomeScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Image
         style={{width: '100%', height: '100%'}}
         source={require('../assets/images/bg.png')}
         blurRadius={70}
       />
-      <SafeAreaView style={styles.sub_container}>
+      <View style={styles.sub_container}>
         <View style={styles.header}>
           <View
             style={{
@@ -485,7 +496,7 @@ export default function HomeScreen() {
             </>
           </DismissKeyboard>
         )}
-      </SafeAreaView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -515,6 +526,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     color: 'white',
+    zIndex: 50,
   },
   forecast_header: {
     marginHorizontal: 4,
